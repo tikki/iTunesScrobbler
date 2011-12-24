@@ -1,5 +1,6 @@
 # encoding: utf-8
-"""itunesScrobbler.py mode optional_arguments*
+"""
+itunesScrobbler.py mode
 
 scrobbles your iTunes Media Library
 
@@ -7,13 +8,15 @@ mode must be one of the following:
 
     update      reset the internal database to your iTunes Media Library
                 (without sending any data to last.fm)
-    scrobble    update from your iTunes Media Library
-                                OR
-                       from a *scrobble list (supplied as additional argument)
-                and send the new play count data to last.fm
-    list        simulate scrobble and output the data to stdout
-                (does not update -- can be used with the scrobble option)
+    scrobble    update from your iTunes Media Library and send the new
+                play count data to last.fm
+
+NOTE: You should *update* on your first run, otherwise your whole library will
+      be scrobbled; you probably don't want that!
 """
+
+# this script uses the (imho kinda ugly - sorry :F -, but very well working!)
+# scrobbler lib by exhuma; get it at http://sourceforge.net/projects/scrobbler/
 
 import sqlite3
 
@@ -72,9 +75,12 @@ def main():
     import scrobbler
 
     # get modus operandi and additional arguments
-    mode     = sys.argv[1] if len(sys.argv) else None
-    listName = sys.argv[2] if len(sys.argv) >= 2 else None
-    if mode not in ('update', 'scrobble', 'list'):
+    mode = None
+    try:
+        mode = sys.argv[1]
+    except:
+        pass
+    if mode not in ('update', 'scrobble'):
         exit(__doc__)
         
     # load internal database
