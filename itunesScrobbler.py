@@ -17,8 +17,10 @@ NOTE: You should *update* on your first run, otherwise your whole library will
 
 # this script uses the (imho kinda ugly - sorry :F -, but very well working!)
 # scrobbler lib by exhuma; get it at http://sourceforge.net/projects/scrobbler/
+import scrobbler
 
 import sqlite3
+from time import mktime
 
 def openDatabase(path):
     db = sqlite3.connect(path)
@@ -63,16 +65,12 @@ def scrobble(track):
     MusicBrainId = ''
     autoflush = False
     if trackLength > 30:
-        print(artist, trackName, playDate, source, rating, trackLength, album, trackNumber, MusicBrainId, autoflush)
-        # scrobbler.submit
-        raw_input()
+        return scrobbler.submit(artist, trackName, playDate, source, rating, trackLength, album, trackNumber, MusicBrainId, autoflush)
+    return True
 
 def main():
     import sys, os
-    from time import mktime
     import plistlib
-
-    import scrobbler
 
     # get modus operandi and additional arguments
     mode = None
@@ -92,49 +90,66 @@ def main():
     print 'loading iTunes Media Library...'
     mediaLibPath = os.path.join(os.path.expanduser('~'), 'Music', 'iTunes', 'iTunes Music Library.xml')
     mediaLib = plistlib.readPlist(mediaLibPath)
-    
-    # if we're trying to scrobble, load username and password and try to log in
-    if mode == 'scrobble':
-        with open('.itunesScrobbler') as fd:
-            username = fd.readline().rstrip('\r\n')
-            password = fd.readline().rstrip('\r\n')
-        # scrobbler.login(username, password)
-        # load external scrobble list (if available)
-        if listName:
-            import re
-            countAndId = re.compile('^(?P<count>\d+) x (?<id>[^:]+): ').search
-            print 'loading supplied scrobble list...'
-            with open(listName) as fd:
-                for lineNr, line in enumerate(fd, 1):
-                    data = countAndId(line)
-                    if not data:
-                        print 'error in line %i' % lineNr
-                    else:
-                        data = data.groupdict()
-                        data['count']
-                        data['id']
-                    
+
+    # synchronize libraries
     tracks = mediaLib['Tracks']
+    tracksToScrobble = []
+    print 'synchronizing databases...'
     for trackId, track in tracks.iteritems():
-        # print trackId
         try:
             if mode == 'update':
                 updateDatabaseWithTrack(db, track)
-            elif mode == 'list':
-                count = playCountDiffWithDatabaseForTrack(db, track)
-                # for i in xrange(count):
-                if count:
-                    print count, ('x %(Persistent ID)s: %(Artist)s - %(Name)s' % track).encode('unicode-escape')
-                    # print '%i x %r' % (, track)
+            # gather scrobble data
             elif mode == 'scrobble':
                 count = playCountDiffWithDatabaseForTrack(db, track)
-                for i in xrange(count):
-                    scrobble(track)
-                updateDatabaseWithTrack(db, track)
+                if count:
+                    tracksToScrobble.append((count, track))
         except KeyError:
             pass
-    # if mode == 'scrobble':
-        # scrobbler.flush()
+    # process gathered information
+    if mode == 'update':
+        print 'done! - internal database updated.'
+    elif mode == 'scrobble':
+        if not tracksToScrobble:
+            print 'done! - nothing changed; nothing to scrobble.'
+        else:
+            # print what we want to scrobble
+            print
+            print 'This is what we\'ll send to last.fm:'
+            print
+            for count, track in tracksToScrobble:
+                print count, ('x %(Artist)s - %(Name)s' % track).encode('unicode-escape')
+            print
+            okay = raw_input('is this okay with you? (y/N)  ')
+            if okay != 'y':
+                print 'alright, let\'s forget about it.'
+            else:
+                # try to load username and password and log in
+                with open('.itunesScrobbler') as fd:
+                    username = fd.readline().rstrip('\r\n')
+                    password = fd.readline().rstrip('\r\n')
+                print 'trying to log in to last.fm...'
+                scrobbler.login(username, password)
+                # scrobble!
+                print 'scrobble ...',
+                for count, track in tracksToScrobble:
+                    trackDescription = ('%(Name)s by %(Artist)s' % track).encode('unicode-escape')
+                    if len(trackDescription) > 70:
+                        trackDescription = trackDescription[:68] + '..'
+                    print '\rscrobble', trackDescription,
+                    for i in xrange(count):
+                        if not scrobble(track):
+                            print
+                            raise scrobbler.PostError('could not scrobble!')
+                    updateDatabaseWithTrack(db, track)
+                if not scrobbler.flush():
+                    # Damn! Something went wrong right at the end.
+                    # We could roll back our internal database now, which could lead to duplicate scrobbles,
+                    # or we could just ignore this error, which could/will lead to tracks not being scrobbled at all;
+                    # both scenarios suck donkey dick!
+                    print 'b0rked hard; so sorry :f - you just lost some scrobbles due to bad caching.'
+                else:
+                    print 'all done! :)'
     
     db.commit()
     db.close()
