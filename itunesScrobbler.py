@@ -71,6 +71,7 @@ def scrobble(track):
 def main():
     import sys, os
     import plistlib
+    import datetime
 
     # get modus operandi and additional arguments
     mode = None
@@ -138,7 +139,17 @@ def main():
                         trackDescription = trackDescription[:68] + '..'
                     print '\rscrobble', trackDescription,
                     for i in xrange(count):
-                        if not scrobble(track):
+                        # need to compensate; we only know when the track was *last* played
+                        if i is 0:
+                            fixedTrack = track
+                        else:
+                            trackLength = track.get('Total Time', 0) // 1000
+                            oldPlayDate = mktime(track['Play Date UTC'].timetuple()) - i * trackLength
+                            newPlayDate = oldPlayDate - i * trackLength
+                            fixedTrack = track.copy()
+                            fixedTrack['Play Date UTC'] = datetime.datetime.fromtimestamp(newPlayDate)
+                        # send the fixed track information off to last.fm
+                        if not scrobble(fixedTrack):
                             print
                             raise scrobbler.PostError('could not scrobble!')
                     updateDatabaseWithTrack(db, track)
