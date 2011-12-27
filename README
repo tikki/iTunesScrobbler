@@ -1,0 +1,6 @@
+iTunesScrobbler is a simple iTunes Media Library scrobbler for last.fm.
+
+It relies solely on your iTunes' media library .xml file, so if you're using
+iTunes Match, but don't use iTunes to listen to your music, this should work
+perfectly to get those scrobbles off your iOS device.
+

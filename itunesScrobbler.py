@@ -50,7 +50,7 @@ def playCountDiffWithDatabaseForTrack(db, track):
     dbCount = 0 if row is None else row[0]
     countDiff = trackCount - dbCount
     if countDiff < 0:
-        raise ValueError('Differential count for track with id `%s` is negative.' % trackId)
+        raise ValueError('Play count difference is negative. (track id: %s)' % trackId)
     return countDiff
 
 def scrobble(track):
@@ -78,7 +78,7 @@ def main():
     try:
         mode = sys.argv[1]
     except:
-        pass
+        mode = 'scrobble'
     if mode not in ('update', 'scrobble'):
         exit(__doc__)
         
@@ -102,9 +102,13 @@ def main():
                 updateDatabaseWithTrack(db, track)
             # gather scrobble data
             elif mode == 'scrobble':
-                count = playCountDiffWithDatabaseForTrack(db, track)
-                if count:
-                    tracksToScrobble.append((count, track))
+                try:
+                    count = playCountDiffWithDatabaseForTrack(db, track)
+                except ValueError, e:
+                    print 'Warning!', e.message
+                else:
+                    if count:
+                        tracksToScrobble.append((count, track))
         except KeyError:
             pass
     # process gathered information
