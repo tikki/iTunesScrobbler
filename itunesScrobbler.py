@@ -139,8 +139,8 @@ def main():
                 print 'scrobble ...',
                 for count, track in tracksToScrobble:
                     trackDescription = ('%(Name)s by %(Artist)s' % track).encode('unicode-escape')
-                    if len(trackDescription) > 70:
-                        trackDescription = trackDescription[:68] + '..'
+                    if len(trackDescription) > 69:
+                        trackDescription = trackDescription[:67] + '..'
                     print '\rscrobble', trackDescription,
                     for i in xrange(count):
                         # need to compensate; we only know when the track was *last* played
@@ -164,6 +164,7 @@ def main():
                     # both scenarios suck donkey dick!
                     print 'b0rked hard; so sorry :f - you just lost some scrobbles due to bad caching.'
                 else:
+                    print
                     print 'all done! :)'
     
     db.commit()
