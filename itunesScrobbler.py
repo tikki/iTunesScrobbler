@@ -21,6 +21,7 @@ import scrobbler
 
 import sqlite3
 from time import mktime
+from datetime import datetime
 
 def openDatabase(path):
     db = sqlite3.connect(path)
@@ -68,10 +69,15 @@ def scrobble(track):
         return scrobbler.submit(artist, trackName, playDate, source, rating, trackLength, album, trackNumber, MusicBrainId, autoflush)
     return True
 
+def dateTimeWithOffsetFromDateTime(offset, dt):
+    oldTimeStamp = mktime(dt.timetuple())
+    newTimeStamp = oldTimeStamp + offset
+    return datetime.fromtimestamp(newTimeStamp)
+
 def main():
     import sys, os
     import plistlib
-    import datetime
+    from time import strftime
 
     # get modus operandi and additional arguments
     mode = None
@@ -118,12 +124,23 @@ def main():
         if not tracksToScrobble:
             print 'done! - nothing changed; nothing to scrobble.'
         else:
+            # sort tracks
+            tracksToScrobble.sort(key=lambda t:(t[1]['Artist']+t[1]['Name']).lower())
+            # fix tracks' play time
+            fauxPlayTime = datetime.now() # could be any datetime instance, like datetime(2012,1,1)
+            patchAll = False
+            for count, track in tracksToScrobble:
+                if patchAll or 'Play Date UTC' not in track:
+                    track['Play Date UTC'] = fauxPlayTime
+                    trackLength = track.get('Total Time', 0) // 1000
+                    fauxPlayTime = dateTimeWithOffsetFromDateTime(-count * trackLength, fauxPlayTime)
             # print what we want to scrobble
             print
             print 'This is what we\'ll send to last.fm:'
             print
             for count, track in tracksToScrobble:
-                print count, ('x %(Artist)s - %(Name)s' % track).encode('unicode-escape')
+                playDate = strftime('%Y-%m-%d %H:%M', track['Play Date UTC'].timetuple())
+                print count, ('x %(Artist)s - %(Name)s' % track).encode('unicode-escape'), ('(%s)' % playDate)
             print
             okay = raw_input('is this okay with you? (y/N)  ')
             if okay != 'y':
@@ -148,10 +165,8 @@ def main():
                             fixedTrack = track
                         else:
                             trackLength = track.get('Total Time', 0) // 1000
-                            oldPlayDate = mktime(track['Play Date UTC'].timetuple()) - i * trackLength
-                            newPlayDate = oldPlayDate - i * trackLength
                             fixedTrack = track.copy()
-                            fixedTrack['Play Date UTC'] = datetime.datetime.fromtimestamp(newPlayDate)
+                            fixedTrack['Play Date UTC'] = dateTimeWithOffsetFromDateTime(-i * trackLength, track['Play Date UTC'])
                         # send the fixed track information off to last.fm
                         if not scrobble(fixedTrack):
                             print
