@@ -4,3 +4,15 @@ It relies solely on your iTunes' media library .xml file, so if you're using
 iTunes Match, but don't use iTunes to listen to your music, this should work
 perfectly to get those scrobbles off your iOS device.
 
+Requirements:
+This script uses a patched version of the scrobbler library by exhuma;
+the script can be downloaded at http://sourceforge.net/projects/scrobbler/
+and here's the patch (for revision 4):
+64c64
+<    url    = "http://post.audioscrobbler.com/"
+---
+>    url    = "https://post.audioscrobbler.com/"
+284a285,287
+>    
+>    if not SUBMIT_CACHE:
+>       return True
